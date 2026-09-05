@@ -8,6 +8,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.util.Log;
 import android.os.Handler;
+import android.os.Looper;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.PointerIcon;
@@ -736,7 +737,7 @@ public class TouchpadView extends View {
     }
 
     public void toggleFullscreen() {
-        new Handler().postDelayed(() -> updateXform(getWidth(), getHeight(), xServer.screenInfo.width, xServer.screenInfo.height),
+        new Handler(Looper.getMainLooper()).postDelayed(() -> updateXform(getWidth(), getHeight(), xServer.screenInfo.width, xServer.screenInfo.height),
                 UPDATE_FORM_DELAYED_TIME);
     }
     

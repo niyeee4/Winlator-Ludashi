@@ -112,7 +112,7 @@ public class ContainerManager {
     }
 
     public void createContainerAsync(final JSONObject data, ContentsManager contentsManager, Callback<Container> callback) {
-        final Handler handler = new Handler();
+        final Handler handler = new Handler(Looper.getMainLooper());
         Executors.newSingleThreadExecutor().execute(() -> {
             final Container container = createContainer(data, contentsManager);
             handler.post(() -> callback.call(container));
@@ -120,7 +120,7 @@ public class ContainerManager {
     }
 
     public void duplicateContainerAsync(Container container, Runnable callback) {
-        final Handler handler = new Handler();
+        final Handler handler = new Handler(Looper.getMainLooper());
         Executors.newSingleThreadExecutor().execute(() -> {
             duplicateContainer(container);
             handler.post(callback);
@@ -128,7 +128,7 @@ public class ContainerManager {
     }
 
     public void removeContainerAsync(Container container, Runnable callback) {
-        final Handler handler = new Handler();
+        final Handler handler = new Handler(Looper.getMainLooper());
         Executors.newSingleThreadExecutor().execute(() -> {
             removeContainer(container);
             handler.post(callback);
@@ -141,7 +141,7 @@ public class ContainerManager {
         return id;
     }
 
-    private Container createContainer(JSONObject data, ContentsManager contentsManager) {
+    public Container createContainer(JSONObject data, ContentsManager contentsManager) {
         try {
             int id = findNextContainerId();
             data.put("id", id);
@@ -179,7 +179,7 @@ public class ContainerManager {
     }
 
 
-    private void duplicateContainer(Container srcContainer) {
+    public void duplicateContainer(Container srcContainer) {
         int id = findNextContainerId();
 
         File dstDir = new File(homeDir, ImageFs.USER + "-" + id);
@@ -216,7 +216,7 @@ public class ContainerManager {
     }
 
 
-    private void removeContainer(Container container) {
+    public void removeContainer(Container container) {
         if (FileUtils.delete(container.getRootDir())) containers.remove(container);
     }
 

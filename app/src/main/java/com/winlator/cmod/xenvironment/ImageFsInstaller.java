@@ -171,52 +171,57 @@ public abstract class ImageFsInstaller {
         SettingsFragment.resetEmulatorsVersion(activity);
 
         Executors.newSingleThreadExecutor().execute(() -> {
-            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
-            clearRootDir(rootDir);
-            final byte compressionRatio = 22;
-            final long contentLength = (long)(FileUtils.getSize(activity, "imagefs.tar.zst") * (100.0f / compressionRatio));
-            AtomicLong totalSizeRef = new AtomicLong();
-            AtomicLong lastProgressDispatch = new AtomicLong(0L);
-            AtomicInteger lastPublishedProgress = new AtomicInteger(-1);
+            boolean success = false;
+            try {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
+                clearRootDir(rootDir);
+                final byte compressionRatio = 22;
+                final long contentLength = (long)(FileUtils.getSize(activity, "imagefs.tar.zst") * (100.0f / compressionRatio));
+                AtomicLong totalSizeRef = new AtomicLong();
+                AtomicLong lastProgressDispatch = new AtomicLong(0L);
+                AtomicInteger lastPublishedProgress = new AtomicInteger(-1);
 
-            boolean success = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, activity,
-                    "imagefs.tar.zst", rootDir, (file, size) -> {
-                        if (size > 0 && contentLength > 0) {
-                            long totalSize = totalSizeRef.addAndGet(size);
-                            int progress = Math.min(75, (int)(((float)totalSize / contentLength) * 75));
-                            long now = SystemClock.uptimeMillis();
-                            int previous = lastPublishedProgress.get();
-                            if (progress > previous
-                                    && (progress >= 75 || progress - previous >= 2)
-                                    && now - lastProgressDispatch.get() >= 120L) {
-                                lastProgressDispatch.set(now);
-                                lastPublishedProgress.set(progress);
-                                if (listener != null) {
-                                    activity.runOnUiThread(() -> listener.onProgress(progress));
+                success = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, activity,
+                        "imagefs.tar.zst", rootDir, (file, size) -> {
+                            if (size > 0 && contentLength > 0) {
+                                long totalSize = totalSizeRef.addAndGet(size);
+                                int progress = Math.min(75, (int)(((float)totalSize / contentLength) * 75));
+                                long now = SystemClock.uptimeMillis();
+                                int previous = lastPublishedProgress.get();
+                                if (progress > previous
+                                        && (progress >= 75 || progress - previous >= 2)
+                                        && now - lastProgressDispatch.get() >= 120L) {
+                                    lastProgressDispatch.set(now);
+                                    lastPublishedProgress.set(progress);
+                                    if (listener != null) {
+                                        activity.runOnUiThread(() -> listener.onProgress(progress));
+                                    }
                                 }
                             }
-                        }
-                        return file;
-                    });
+                            return file;
+                        });
 
-            if (success) {
-                installWineFromAssets(null, activity);
-                if (listener != null) activity.runOnUiThread(() -> listener.onProgress(88));
-                installDriversFromAssets(null, activity);
-                if (listener != null) activity.runOnUiThread(() -> listener.onProgress(96));
-                imageFs.createImgVersionFile(LATEST_VERSION);
-                FileUtils.symlink("libSDL2-2.0.so",
-                        new File(imageFs.getLibDir(), "libSDL2-2.0.so.0").getAbsolutePath());
-                resetContainerImgVersions(activity);
-            } else {
-                AppUtils.showToast(activity, R.string.unable_to_install_system_files);
+                if (success) {
+                    installWineFromAssets(null, activity);
+                    if (listener != null) activity.runOnUiThread(() -> listener.onProgress(88));
+                    installDriversFromAssets(null, activity);
+                    if (listener != null) activity.runOnUiThread(() -> listener.onProgress(96));
+                    imageFs.createImgVersionFile(LATEST_VERSION);
+                    FileUtils.symlink("libSDL2-2.0.so",
+                            new File(imageFs.getLibDir(), "libSDL2-2.0.so.0").getAbsolutePath());
+                    resetContainerImgVersions(activity);
+                } else {
+                    AppUtils.showToast(activity, R.string.unable_to_install_system_files);
+                }
+            } catch (Throwable t) {
+                android.util.Log.e("ImageFsInstaller", "Error installing system files silently", t);
+            } finally {
+                final boolean completed = success;
+                activity.runOnUiThread(() -> {
+                    if (listener != null && completed) listener.onProgress(100);
+                    if (listener != null) listener.onFinished(completed);
+                });
             }
-
-            final boolean completed = success;
-            activity.runOnUiThread(() -> {
-                if (listener != null && completed) listener.onProgress(100);
-                if (listener != null) listener.onFinished(completed);
-            });
         });
     }
 

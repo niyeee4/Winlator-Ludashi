@@ -16,6 +16,7 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -653,7 +654,7 @@ public class BigPictureActivity extends AppCompatActivity {
 
 
     private void simulateTouchOnWebView(WebView webView) {
-        new Handler().postDelayed(() -> {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
             int webViewWidth = webView.getWidth();
             int webViewHeight = webView.getHeight();
 

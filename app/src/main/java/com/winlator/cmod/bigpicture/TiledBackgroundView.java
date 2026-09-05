@@ -9,6 +9,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Shader;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewTreeObserver;
@@ -21,7 +22,7 @@ public class TiledBackgroundView extends View {
     private Bitmap[] frames;
     private Bitmap staticWallpaper; // Bitmap for static wallpaper
     private int currentFrame = 0;
-    private Handler handler = new Handler();
+    private Handler handler = new Handler(Looper.getMainLooper());
     private int frameDuration = 66; // Duration per frame (in milliseconds)
     private boolean isAnimating = false;
     private boolean enableParallax = true; // New field to toggle parallax
