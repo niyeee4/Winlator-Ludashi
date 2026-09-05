@@ -59,48 +59,31 @@ public abstract class ImageFsInstaller {
         return success;
     }
 
-    public static void installWineFromAssets(final DownloadProgressDialog dialog, final AppCompatActivity activity) {
-        String[] versions = activity.getResources().getStringArray(R.array.wine_entries);
-        File rootDir = ImageFs.find(activity).getRootDir();
-        final byte compressionRatio = 22;
+    public static void installWineFromAssets(final DownloadProgressDialog dialog, final Context context) {
+        String[] versions = context.getResources().getStringArray(R.array.wine_entries);
+        File rootDir = ImageFs.find(context).getRootDir();
 
-        if (dialog != null) activity.runOnUiThread(() -> dialog.setMessage(R.string.installing_wine_files));
+        if (dialog != null && context instanceof AppCompatActivity) {
+            ((AppCompatActivity) context).runOnUiThread(() -> dialog.setMessage(R.string.installing_wine_files));
+        }
 
         for (String version : versions) {
             File outFile = new File(rootDir, "opt/" + version);
+            File wineBin = new File(outFile, "bin/wine");
+            if (wineBin.isFile()) continue;
             outFile.mkdirs();
 
-            String assetFile = null;
-            TarCompressorUtils.Type type = TarCompressorUtils.Type.ZSTD;
-            long size = FileUtils.getSize(activity, version + ".tar.zst");
-            if (size > 0) {
-                assetFile = version + ".tar.zst";
-                type = TarCompressorUtils.Type.ZSTD;
-            } else if ((size = FileUtils.getSize(activity, version + ".wcp.xz")) > 0) {
-                assetFile = version + ".wcp.xz";
-                type = TarCompressorUtils.Type.XZ;
-            } else if ((size = FileUtils.getSize(activity, version + ".txz")) > 0) {
-                assetFile = version + ".txz";
-                type = TarCompressorUtils.Type.XZ;
-            } else if ((size = FileUtils.getSize(activity, "proton-wine-11.0-1-arm64ec.wcp.xz")) > 0) {
-                assetFile = "proton-wine-11.0-1-arm64ec.wcp.xz";
-                type = TarCompressorUtils.Type.XZ;
+            boolean extracted = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, version + ".tar.zst", outFile);
+            if (!extracted) {
+                extracted = TarCompressorUtils.extract(TarCompressorUtils.Type.XZ, context, version + ".wcp.xz", outFile);
             }
-
-            if (assetFile != null) {
-                final long contentLength = (long)(size * (100.0f / compressionRatio));
-                AtomicLong totalSizeRef = new AtomicLong();
-
-                TarCompressorUtils.extract(type, activity, assetFile, outFile, (file, sz) -> {
-                    if (sz > 0) {
-                        long totalSize = totalSizeRef.addAndGet(sz);
-                        final int progress = (int)(((float)totalSize / contentLength) * 100);
-                        if (dialog != null) activity.runOnUiThread(() -> dialog.setProgress(progress));
-                    }
-                    return file;
-                });
+            if (!extracted) {
+                extracted = TarCompressorUtils.extract(TarCompressorUtils.Type.XZ, context, version + ".txz", outFile);
             }
-         }
+            if (!extracted) {
+                extracted = TarCompressorUtils.extract(TarCompressorUtils.Type.XZ, context, "proton-wine-11.0-1-arm64ec.wcp.xz", outFile);
+            }
+        }
     }
 
     public static void installDriversFromAssets(final DownloadProgressDialog dialog, final AppCompatActivity activity) {

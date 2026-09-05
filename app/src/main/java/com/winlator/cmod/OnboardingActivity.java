@@ -33,6 +33,7 @@ import com.winlator.cmod.core.DefaultVersion;
 import com.winlator.cmod.core.GPUInformation;
 import com.winlator.cmod.core.OpenGLDriverDefaults;
 import com.winlator.cmod.core.ProtonPackageManager;
+import com.winlator.cmod.core.TarCompressorUtils;
 import com.winlator.cmod.core.WineInfo;
 import com.winlator.cmod.core.WineRuntimeGuard;
 import com.winlator.cmod.fexcore.FEXCorePreset;
@@ -225,6 +226,18 @@ public class OnboardingActivity extends AppCompatActivity {
                     try {
                         latch.await(10, java.util.concurrent.TimeUnit.MINUTES);
                     } catch (InterruptedException ignored) {}
+                }
+
+                // Ensure Proton 11 runtime is extracted before creating container
+                File optProton11 = new File(imageFs.getRootDir(), "opt/" + WineInfo.MAIN_WINE_VERSION.identifier());
+                File wineBin = new File(optProton11, "bin/wine");
+                if (!wineBin.isFile()) {
+                    runOnUiThread(() -> composeController.updateLoadingStatus("Installing Wine Proton 11...", 50));
+                    optProton11.mkdirs();
+                    boolean extracted = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, this, "proton-11.0-1-arm64ec.tar.zst", optProton11);
+                    if (!extracted) {
+                        ImageFsInstaller.installWineFromAssets(null, this);
+                    }
                 }
 
                 runOnUiThread(() -> composeController.updateLoadingStatus("Configuring container...", 60));

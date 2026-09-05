@@ -222,23 +222,27 @@ public class ContainerManager {
 
     public ArrayList<Shortcut> loadShortcuts() {
         ArrayList<Shortcut> shortcuts = new ArrayList<>();
+        if (containers.isEmpty()) {
+            loadContainers();
+        }
         for (Container container : containers) {
             File desktopDir = container.getDesktopDir();
-            ArrayList<File> files = new ArrayList<>();
-            if (desktopDir.exists())
-                files.addAll(Arrays.asList(desktopDir.listFiles()));
-            if (files != null) {
-                for (File file : files) {
-                    String fileName = file.getName();
-                    if (fileName.endsWith(".lnk")) {
-                        String filePath = file.getPath();
-                        File desktopFile = new File(filePath.substring(0, filePath.lastIndexOf(".")) + ".desktop");
-                        if (!desktopFile.exists()) {
-                            MSLink.createDesktopFile(file, context);
-                            shortcuts.add(new Shortcut(container, desktopFile));
+            if (desktopDir != null && desktopDir.exists()) {
+                File[] list = desktopDir.listFiles();
+                if (list != null) {
+                    for (File file : list) {
+                        if (file == null) continue;
+                        String fileName = file.getName();
+                        if (fileName.endsWith(".lnk")) {
+                            String filePath = file.getPath();
+                            File desktopFile = new File(filePath.substring(0, filePath.lastIndexOf(".")) + ".desktop");
+                            if (!desktopFile.exists()) {
+                                MSLink.createDesktopFile(file, context);
+                                shortcuts.add(new Shortcut(container, desktopFile));
+                            }
                         }
+                        else if (fileName.endsWith(".desktop")) shortcuts.add(new Shortcut(container, file));
                     }
-                    else if (fileName.endsWith(".desktop")) shortcuts.add(new Shortcut(container, file));
                 }
             }
         }
@@ -264,7 +268,10 @@ public class ContainerManager {
             throw new JSONException("Could not remove incompatible " + dstName + "/icu.dll");
 
         File[] srcfiles = srcDir.listFiles(file -> file.isFile());
-        if (srcfiles == null) throw new JSONException("Missing Wine files");
+        if (srcfiles == null) {
+            Log.w("ContainerManager", "srcDir does not exist or has no files: " + srcDir.getAbsolutePath());
+            return;
+        }
 
         for (File file : srcfiles) {
             String dllName = file.getName();
@@ -291,6 +298,10 @@ public class ContainerManager {
         if (!result) {
             File containerPatternFile = new File(wineInfo.path + "/prefixPack.txz");
             result = TarCompressorUtils.extract(TarCompressorUtils.Type.XZ, containerPatternFile, containerDir);
+        }
+
+        if (!result) {
+            result = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, "container_pattern_common.tzst", containerDir, onExtractFileListener);
         }
 
         if (result) {

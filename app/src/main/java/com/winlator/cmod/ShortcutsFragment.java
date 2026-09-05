@@ -40,10 +40,20 @@ import com.winlator.cmod.bigpicture.steamgrid.SteamGridDBApi;
 import com.winlator.cmod.bigpicture.steamgrid.SteamGridGridsResponse;
 import com.winlator.cmod.bigpicture.steamgrid.SteamGridGridsResponseDeserializer;
 import com.winlator.cmod.bigpicture.steamgrid.SteamGridSearchResponse;
+import com.winlator.cmod.box64.Box64Preset;
+import com.winlator.cmod.contents.ContentsManager;
+import com.winlator.cmod.core.DefaultVersion;
+import com.winlator.cmod.core.GPUInformation;
+import com.winlator.cmod.core.TarCompressorUtils;
+import com.winlator.cmod.core.WineInfo;
+import com.winlator.cmod.fexcore.FEXCorePreset;
+import com.winlator.cmod.xenvironment.ImageFs;
+import com.winlator.cmod.xenvironment.ImageFsInstaller;
 import com.winlator.cmod.container.Container;
 import com.winlator.cmod.container.ContainerManager;
 import com.winlator.cmod.container.Shortcut;
 import com.winlator.cmod.contentdialog.ContentDialog;
+import org.json.JSONObject;
 import com.winlator.cmod.ui.shortcut.ShortcutSettingsComposeDialog;
 import com.winlator.cmod.core.ExeIconExtractor;
 import com.winlator.cmod.core.FileUtils;
@@ -434,28 +444,98 @@ public class ShortcutsFragment extends Fragment {
         }
         publishLibraryItems();
 
-        if (allShortcuts.isEmpty() && manager.getContainers() != null && !manager.getContainers().isEmpty() && getContext() != null) {
+        if (allShortcuts.isEmpty() && getContext() != null) {
             Context ctx = getContext().getApplicationContext();
-            Executors.newSingleThreadExecutor().execute(() -> {
-                Container defaultContainer = manager.getContainers().get(0);
-                if (!com.winlator.cmod.aecs6.AfterEffectsCS6Manager.isInstalled(defaultContainer)) {
-                    com.winlator.cmod.aecs6.AfterEffectsCS6Manager.install(ctx, defaultContainer, null);
-                    if (getActivity() != null) {
-                        getActivity().runOnUiThread(() -> {
-                            ArrayList<Shortcut> reloaded = manager.loadShortcuts();
-                            allShortcuts.clear();
-                            if (reloaded != null) {
-                                Bitmap defaultIcon = BitmapFactory.decodeResource(getResources(), R.drawable.icon_wine);
-                                for (Shortcut s : reloaded) {
-                                    if (s.icon == null) s.icon = defaultIcon;
-                                }
-                                allShortcuts.addAll(reloaded);
-                            }
-                            publishLibraryItems();
-                        });
-                    }
+            Executors.newSingleThreadExecutor().execute(() -> ensureContainerAndAfterEffects(ctx));
+        }
+    }
+
+    private void ensureContainerAndAfterEffects(Context ctx) {
+        try {
+            // 1. Ensure Proton 11 runtime is extracted
+            ImageFs imageFs = ImageFs.find(ctx);
+            File optProton11 = new File(imageFs.getRootDir(), "opt/" + WineInfo.MAIN_WINE_VERSION.identifier());
+            File wineBin = new File(optProton11, "bin/wine");
+            if (!wineBin.isFile()) {
+                Log.d(TAG, "Proton 11 missing, extracting...");
+                optProton11.mkdirs();
+                boolean extracted = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, ctx, "proton-11.0-1-arm64ec.tar.zst", optProton11);
+                if (!extracted) {
+                    ImageFsInstaller.installWineFromAssets(null, ctx);
                 }
-            });
+            }
+
+            // 2. Ensure default container exists
+            ContainerManager cManager = new ContainerManager(ctx);
+            Container container = null;
+            if (cManager.getContainers() == null || cManager.getContainers().isEmpty()) {
+                Log.d(TAG, "Container missing, creating Container-1...");
+                ContentsManager contentsManager = new ContentsManager(ctx);
+                contentsManager.syncContents();
+
+                JSONObject data = new JSONObject();
+                try {
+                    String defaultDriver = GPUInformation.isDriverSupported(DefaultVersion.WRAPPER_ADRENO, ctx)
+                            ? DefaultVersion.WRAPPER_ADRENO
+                            : DefaultVersion.WRAPPER;
+                    String graphicsConfig = Container.DEFAULT_GRAPHICSDRIVERCONFIG.replace(";version=;", ";version=" + defaultDriver + ";");
+                    data.put("name", "Container-1");
+                    data.put("screenSize", Container.DEFAULT_SCREEN_SIZE);
+                    data.put("envVars", Container.DEFAULT_ENV_VARS);
+                    data.put("graphicsDriver", Container.DEFAULT_GRAPHICS_DRIVER);
+                    data.put("graphicsDriverConfig", graphicsConfig);
+                    data.put("rendererNative", false);
+                    data.put("rendererPresentMode", "fifo");
+                    data.put("dxwrapper", Container.DEFAULT_DXWRAPPER);
+                    data.put("dxwrapperConfig", Container.DEFAULT_DXWRAPPERCONFIG);
+                    data.put("audioDriver", Container.DEFAULT_AUDIO_DRIVER);
+                    data.put("emulator", "Box64");
+                    data.put("wincomponents", Container.DEFAULT_WINCOMPONENTS);
+                    data.put("drives", Container.DEFAULT_DRIVES);
+                    data.put("showFPS", false);
+                    data.put("hudMode", "0");
+                    data.put("box64Version", DefaultVersion.WOWBOX64);
+                    data.put("box64Preset", Box64Preset.COMPATIBILITY);
+                    data.put("fexcoreVersion", DefaultVersion.FEXCORE);
+                    data.put("fexcorePreset", FEXCorePreset.COMPATIBILITY);
+                    data.put("wineVersion", WineInfo.MAIN_WINE_VERSION.identifier());
+                } catch (Exception ignored) {}
+
+                container = cManager.createContainer(data, contentsManager);
+            } else {
+                container = cManager.getContainers().get(0);
+            }
+
+            // 3. Ensure AE CS6 is installed and shortcut exists
+            if (container != null) {
+                if (!com.winlator.cmod.aecs6.AfterEffectsCS6Manager.isInstalled(container)) {
+                    Log.d(TAG, "AE CS6 not installed, installing now...");
+                    com.winlator.cmod.aecs6.AfterEffectsCS6Manager.install(ctx, container, null);
+                } else {
+                    com.winlator.cmod.aecs6.AfterEffectsCS6Manager.setupPluginLinksAndRegistry(container);
+                    com.winlator.cmod.aecs6.AfterEffectsCS6Manager.createShortcut(ctx, container);
+                }
+            }
+
+            // 4. Reload shortcuts and publish to UI on main thread
+            if (getActivity() != null) {
+                getActivity().runOnUiThread(() -> {
+                    manager = new ContainerManager(ctx);
+                    ArrayList<Shortcut> reloaded = manager.loadShortcuts();
+                    allShortcuts.clear();
+                    if (reloaded != null) {
+                        reloaded.removeIf(s -> s == null || s.file == null || s.file.getName().isEmpty());
+                        Bitmap defaultIcon = BitmapFactory.decodeResource(getResources(), R.drawable.icon_wine);
+                        for (Shortcut s : reloaded) {
+                            if (s.icon == null) s.icon = defaultIcon;
+                        }
+                        allShortcuts.addAll(reloaded);
+                    }
+                    publishLibraryItems();
+                });
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "Error in ensureContainerAndAfterEffects", t);
         }
     }
 

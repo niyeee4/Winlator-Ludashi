@@ -70,21 +70,21 @@ public class AfterEffectsCS6Manager {
 
         boolean extracted = false;
 
-        // 1. Try aecs6.tar.zst in assets
-        long assetSize = FileUtils.getSize(context, "aecs6.tar.zst");
-        if (assetSize > 0) {
+        // 1. Try aecs6.tar.zst in assets directly
+        try {
             Log.d(TAG, "Extracting aecs6.tar.zst from assets...");
             extracted = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, "aecs6.tar.zst", appDir, (file, sz) -> file);
+            if (extracted && listener != null) listener.onProgress(80);
+        } catch (Exception e) {
+            Log.w(TAG, "aecs6.tar.zst extraction failed", e);
         }
 
         // 2. Try aecs6.zip in assets
-        if (!extracted && FileUtils.getSize(context, "aecs6.zip") > 0) {
-            Log.d(TAG, "Extracting aecs6.zip from assets...");
+        if (!extracted) {
             try (InputStream is = context.getAssets().open("aecs6.zip")) {
+                Log.d(TAG, "Extracting aecs6.zip from assets...");
                 extracted = extractZipStream(is, appDir, listener);
-            } catch (Exception e) {
-                Log.e(TAG, "Failed extracting aecs6.zip from assets", e);
-            }
+            } catch (Exception ignored) {}
         }
 
         // 3. Try external storage candidates
@@ -123,7 +123,9 @@ public class AfterEffectsCS6Manager {
                 if (nestedFiles != null) {
                     for (File f : nestedFiles) {
                         File dest = new File(appDir, f.getName());
-                        f.renameTo(dest);
+                        if (!dest.exists()) {
+                            f.renameTo(dest);
+                        }
                     }
                 }
             }
@@ -131,6 +133,7 @@ public class AfterEffectsCS6Manager {
 
         setupPluginLinksAndRegistry(container);
         createShortcut(context, container);
+        if (listener != null) listener.onProgress(100);
         return isInstalled(container);
     }
 
@@ -319,14 +322,23 @@ public class AfterEffectsCS6Manager {
         } catch (Exception ignored) {}
     }
 
-    public static void createShortcut(Context context, Container container) {
+    public static boolean isShortcutPresent(Container container) {
+        if (container == null) return false;
+        File desktopFile = new File(container.getDesktopDir(), SHORTCUT_NAME + ".desktop");
+        return desktopFile.isFile();
+    }
+
+    public static boolean createShortcut(Context context, Container container) {
+        if (container == null) return false;
         try {
             File desktopDir = container.getDesktopDir();
             if (!desktopDir.exists()) desktopDir.mkdirs();
 
             String winePrefix = container.getRootDir().getPath() + "/.wine";
             File launcherExe = getLauncherExe(container);
-            String unixPath = launcherExe.getAbsolutePath();
+            String unixPath = (launcherExe != null && launcherExe.isFile())
+                    ? launcherExe.getAbsolutePath()
+                    : new File(getAppDir(container), "AdobeAfterEffectsPortable.exe").getAbsolutePath();
 
             File desktopFile = new File(desktopDir, SHORTCUT_NAME + ".desktop");
             try (PrintWriter writer = new PrintWriter(new FileWriter(desktopFile))) {
@@ -365,8 +377,10 @@ public class AfterEffectsCS6Manager {
 
             installIcons(context, container);
             Log.d(TAG, "Shortcut created successfully at: " + desktopFile.getAbsolutePath());
+            return desktopFile.isFile();
         } catch (Exception e) {
             Log.e(TAG, "Failed to create desktop shortcut", e);
+            return false;
         }
     }
 
