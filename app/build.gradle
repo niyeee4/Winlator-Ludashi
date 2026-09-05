@@ -47,11 +47,13 @@ tasks.register("downloadImageFS") {
 
 tasks.register("downloadProton") {
     def assetDir = new File(project.rootDir, ["app","src","main","assets"].join(File.separator))
-    File protonARM64EC = new File(assetDir, "proton-9.0-arm64ec.tar.zst")
-    File staleProtonARM64EC = new File(assetDir, "proton-10.0-5-arm64ec.tar.zst")
-    String protonURL = "https://github.com/Other-backup/winlator-imagefs-v2/releases/download/d/proton-wine-9.0-arm64ec.tar.zst"
-    String protonSHA256 = "1d6e5f5585421e7ef2a1378028915bb3d2128766593d53c896b808b8ca66fe6c"
-    long protonSize = 129997755L
+    File proton11TarZst = new File(assetDir, "proton-11.0-1-arm64ec.tar.zst")
+    File proton11WcpXz = new File(assetDir, "proton-wine-11.0-1-arm64ec.wcp.xz")
+    File staleProton9 = new File(assetDir, "proton-9.0-arm64ec.tar.zst")
+    File staleProton10 = new File(assetDir, "proton-10.0-5-arm64ec.tar.zst")
+    String protonURL = "https://github.com/Other-backup/winlator-imagefs-v2/releases/download/d/proton-wine-11.0-1-arm64ec.wcp.xz"
+    String protonSHA256 = "a360f849f0ce3a808dacec854f25a641735a62ecc0eca8e09b7b7f7ff44041ff"
+    long protonSize = 127896076L
 
     def fileSHA256 = { File file ->
         MessageDigest digest = MessageDigest.getInstance("SHA-256")
@@ -64,31 +66,49 @@ tasks.register("downloadProton") {
     }
 
     doLast {
-        if (staleProtonARM64EC.exists()) staleProtonARM64EC.delete()
+        if (staleProton9.exists()) staleProton9.delete()
+        if (staleProton10.exists()) staleProton10.delete()
 
-        boolean valid = protonARM64EC.isFile()
-                && protonARM64EC.length() == protonSize
-                && fileSHA256(protonARM64EC).equalsIgnoreCase(protonSHA256)
+        if (proton11TarZst.isFile() && proton11TarZst.length() > 0) {
+            println("Proton 11.0-1 ARM64EC (tar.zst) is present.\n")
+            return
+        }
+
+        boolean valid = proton11WcpXz.isFile()
+                && proton11WcpXz.length() == protonSize
+                && fileSHA256(proton11WcpXz).equalsIgnoreCase(protonSHA256)
         if (!valid) {
-            if (protonARM64EC.exists()) protonARM64EC.delete()
-            println("Proton 9 ARM64EC was not present or failed validation, downloading...\n")
+            if (proton11WcpXz.exists()) proton11WcpXz.delete()
+            println("Proton 11 ARM64EC was not present or failed validation, downloading...\n")
             new URL(protonURL).withInputStream { input ->
-                protonARM64EC.withOutputStream { output -> output << input }
+                proton11WcpXz.withOutputStream { output -> output << input }
             }
-            valid = protonARM64EC.isFile()
-                    && protonARM64EC.length() == protonSize
-                    && fileSHA256(protonARM64EC).equalsIgnoreCase(protonSHA256)
+            valid = proton11WcpXz.isFile()
+                    && proton11WcpXz.length() == protonSize
+                    && fileSHA256(proton11WcpXz).equalsIgnoreCase(protonSHA256)
             if (!valid) {
-                protonARM64EC.delete()
-                throw new GradleException("Downloaded Proton 9 ARM64EC archive failed size/SHA-256 validation")
+                proton11WcpXz.delete()
+                throw new GradleException("Downloaded Proton 11 ARM64EC archive failed size/SHA-256 validation")
             }
+        }
+    }
+}
+
+tasks.register("bundleAECS6") {
+    def assetDir = new File(project.rootDir, ["app","src","main","assets"].join(File.separator))
+    File aecs6Target = new File(assetDir, "aecs6.tar.zst")
+    File localZip = new File(project.rootDir, ["aecs6", "Adobe After Effects CS6 Portable [Black General].zip"].join(File.separator))
+    doLast {
+        if (!aecs6Target.exists() && localZip.exists()) {
+            println("AE CS6 local zip exists; ensure aecs6.tar.zst is in assets.")
         }
     }
 }
 
 tasks.register("prepareKotlinBuildScriptModel"){}
 downloadProton.dependsOn(downloadImageFS)
-preBuild.dependsOn(downloadProton)
+bundleAECS6.dependsOn(downloadProton)
+preBuild.dependsOn(bundleAECS6)
 
 android {
     namespace 'com.winlator.cmod'
@@ -165,6 +185,10 @@ android {
         resources {
             pickFirsts += ["assets/dexopt/baseline.prof", "assets/dexopt/baseline.profm"]
         }
+    }
+
+    aaptOptions {
+        noCompress 'zst', 'tzst', 'xz', 'zip'
     }
 
     buildFeatures {

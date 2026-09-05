@@ -917,7 +917,10 @@ public class OnboardingActivity extends AppCompatActivity {
                     finishing = false;
                     Toast.makeText(this, "Unable to create the first container.", Toast.LENGTH_LONG).show();
                 } else {
-                    enterMainApp();
+                    io.execute(() -> {
+                        com.winlator.cmod.aecs6.AfterEffectsCS6Manager.install(OnboardingActivity.this, created, null);
+                        runOnUiThread(this::enterMainApp);
+                    });
                 }
             });
         } catch (Exception error) {

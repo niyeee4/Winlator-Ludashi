@@ -69,17 +69,37 @@ public abstract class ImageFsInstaller {
         for (String version : versions) {
             File outFile = new File(rootDir, "opt/" + version);
             outFile.mkdirs();
-            final long contentLength = (long)(FileUtils.getSize(activity, version + ".tar.zst") * (100.0f / compressionRatio));
-            AtomicLong totalSizeRef = new AtomicLong();
 
-            TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, activity, version + ".tar.zst", outFile, (file, size) -> {
-                if (size > 0) {
-                    long totalSize = totalSizeRef.addAndGet(size);
-                    final int progress = (int)(((float)totalSize / contentLength) * 100);
-                    if (dialog != null) activity.runOnUiThread(() -> dialog.setProgress(progress));
-                }
-                return file;
-            });
+            String assetFile = null;
+            TarCompressorUtils.Type type = TarCompressorUtils.Type.ZSTD;
+            long size = FileUtils.getSize(activity, version + ".tar.zst");
+            if (size > 0) {
+                assetFile = version + ".tar.zst";
+                type = TarCompressorUtils.Type.ZSTD;
+            } else if ((size = FileUtils.getSize(activity, version + ".wcp.xz")) > 0) {
+                assetFile = version + ".wcp.xz";
+                type = TarCompressorUtils.Type.XZ;
+            } else if ((size = FileUtils.getSize(activity, version + ".txz")) > 0) {
+                assetFile = version + ".txz";
+                type = TarCompressorUtils.Type.XZ;
+            } else if ((size = FileUtils.getSize(activity, "proton-wine-11.0-1-arm64ec.wcp.xz")) > 0) {
+                assetFile = "proton-wine-11.0-1-arm64ec.wcp.xz";
+                type = TarCompressorUtils.Type.XZ;
+            }
+
+            if (assetFile != null) {
+                final long contentLength = (long)(size * (100.0f / compressionRatio));
+                AtomicLong totalSizeRef = new AtomicLong();
+
+                TarCompressorUtils.extract(type, activity, assetFile, outFile, (file, sz) -> {
+                    if (sz > 0) {
+                        long totalSize = totalSizeRef.addAndGet(sz);
+                        final int progress = (int)(((float)totalSize / contentLength) * 100);
+                        if (dialog != null) activity.runOnUiThread(() -> dialog.setProgress(progress));
+                    }
+                    return file;
+                });
+            }
          }
     }
 

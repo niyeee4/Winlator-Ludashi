@@ -433,6 +433,30 @@ public class ShortcutsFragment extends Fragment {
             allShortcuts.addAll(shortcuts);
         }
         publishLibraryItems();
+
+        if (allShortcuts.isEmpty() && manager.getContainers() != null && !manager.getContainers().isEmpty() && getContext() != null) {
+            Context ctx = getContext().getApplicationContext();
+            Executors.newSingleThreadExecutor().execute(() -> {
+                Container defaultContainer = manager.getContainers().get(0);
+                if (!com.winlator.cmod.aecs6.AfterEffectsCS6Manager.isInstalled(defaultContainer)) {
+                    com.winlator.cmod.aecs6.AfterEffectsCS6Manager.install(ctx, defaultContainer, null);
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> {
+                            ArrayList<Shortcut> reloaded = manager.loadShortcuts();
+                            allShortcuts.clear();
+                            if (reloaded != null) {
+                                Bitmap defaultIcon = BitmapFactory.decodeResource(getResources(), R.drawable.icon_wine);
+                                for (Shortcut s : reloaded) {
+                                    if (s.icon == null) s.icon = defaultIcon;
+                                }
+                                allShortcuts.addAll(reloaded);
+                            }
+                            publishLibraryItems();
+                        });
+                    }
+                }
+            });
+        }
     }
 
     private Shortcut findShortcut(String shortcutPath) {

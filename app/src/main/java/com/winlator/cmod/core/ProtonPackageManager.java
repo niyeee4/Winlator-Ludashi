@@ -22,7 +22,7 @@ import okhttp3.ResponseBody;
 
 public abstract class ProtonPackageManager {
     private static final String TAG = "ProtonPackageManager";
-    public static final String DEFAULT_IDENTIFIER = "proton-9.0-arm64ec";
+    public static final String DEFAULT_IDENTIFIER = "proton-11.0-1-arm64ec";
     private static final String RELEASE_BASE_URL = "https://github.com/Other-backup/winlator-imagefs/releases/download/protons-zst-latest/";
     private static final String RELEASE_D_BASE_URL = "https://github.com/Other-backup/winlator-imagefs-v2/releases/download/d/";
     private static final OkHttpClient HTTP = new OkHttpClient();
@@ -55,6 +55,9 @@ public abstract class ProtonPackageManager {
     }
 
     private static final List<PackageInfo> PACKAGES = Arrays.asList(
+            new PackageInfo("proton-11.0-1-arm64ec", "Proton 11.0-1 arm64ec", "proton-wine-11.0-1-arm64ec.wcp.xz",
+                    new long[]{127896076L}, RELEASE_D_BASE_URL + "proton-wine-11.0-1-arm64ec.wcp.xz",
+                    "a360f849f0ce3a808dacec854f25a641735a62ecc0eca8e09b7b7f7ff44041ff"),
             new PackageInfo("proton-9.0-arm64ec", "Proton 9 arm64ec", "proton-wine-9.0-arm64ec.tar.zst",
                     new long[]{129997755L}, RELEASE_D_BASE_URL + "proton-wine-9.0-arm64ec.tar.zst",
                     "1d6e5f5585421e7ef2a1378028915bb3d2128766593d53c896b808b8ca66fe6c"),
@@ -67,9 +70,6 @@ public abstract class ProtonPackageManager {
             new PackageInfo("proton-10.0-5-x86_64", "Proton 10.0-5 x86_64", "proton-10.0-5-x86_64.wcp",
                     new long[]{72882772L}, RELEASE_D_BASE_URL + "proton-10.0-5-x86_64.wcp",
                     "2a5759e48b5f856d36eedac3e5159054629260a792fcf9c167140e02c06d8f0c"),
-            new PackageInfo("proton-11.0-1-arm64ec", "Proton 11.0-1 arm64ec", "proton-wine-11.0-1-arm64ec.wcp.xz",
-                    new long[]{127896076L}, RELEASE_D_BASE_URL + "proton-wine-11.0-1-arm64ec.wcp.xz",
-                    "a360f849f0ce3a808dacec854f25a641735a62ecc0eca8e09b7b7f7ff44041ff"),
             new PackageInfo("proton-10-arm64ec", "Proton 10 arm64ec (Legacy)", "proton-10-arm64ec.tar.zst",
                     new long[]{52428800L, 52428800L, 52428800L, 52428800L, 7195940L})
     );

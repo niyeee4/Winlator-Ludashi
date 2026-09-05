@@ -1,5 +1,6 @@
 package com.winlator.cmod;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,9 +11,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class ContainersFragment extends Fragment {
-    private boolean redirected;
+import com.winlator.cmod.ui.settings.ContainersSettingsActivity;
 
+public class ContainersFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -23,10 +24,11 @@ public class ContainersFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        if (redirected) return;
-        redirected = true;
-        if (getActivity() instanceof MainActivity) {
-            ((MainActivity) getActivity()).navigateToMainDestination(R.id.main_menu_shortcuts);
+        if (getActivity() != null) {
+            startActivity(new Intent(getActivity(), ContainersSettingsActivity.class));
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).navigateToMainDestination(R.id.main_menu_shortcuts);
+            }
         }
     }
 }

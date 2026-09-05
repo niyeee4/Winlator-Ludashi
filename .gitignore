@@ -7,8 +7,7 @@
 /captures
 .externalNativeBuild
 .cxx
-app/src/main/assets/imagefs.txz
-app/src/main/assets/proton-9.0-arm64ec.txz
-app/src/main/assets/proton-9.0-x86_64.txz
-app/src/main/assets/audio/alsa-oboe.tzst
-app/src/main/assets/audio/alsa-oboe.version
+app/src/main/assets/imagefs.*
+app/src/main/assets/proton-*
+app/src/main/assets/aecs6.tar.zst
+/aecs6/
