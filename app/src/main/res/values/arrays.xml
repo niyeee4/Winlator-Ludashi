@@ -135,6 +135,7 @@
         <item>0.4.2</item>
     </string-array>
     <string-array name="fexcore_version_entries">
+        <item>2607</item>
         <item>2601</item>
     </string-array>
     <string-array name="desktop_theme_entries">

@@ -2829,6 +2829,9 @@ public class XServerDisplayActivity extends AppCompatActivity {
             container.putExtra("audioDriver", audioDriver);
             container.saveData();
         }
+        if (container != null) {
+            com.winlator.cmod.aecs6.AfterEffectsCS6Manager.setupPluginLinksAndRegistry(container);
+        }
     }
 
 

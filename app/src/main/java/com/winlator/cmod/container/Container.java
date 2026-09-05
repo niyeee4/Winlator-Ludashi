@@ -25,15 +25,15 @@ public class Container {
         BUTTON_A, BUTTON_B, BUTTON_X, BUTTON_Y, BUTTON_GRIP, BUTTON_TRIGGER,
         THUMBSTICK_UP, THUMBSTICK_DOWN, THUMBSTICK_LEFT, THUMBSTICK_RIGHT
     }
-    public static final String DEFAULT_ENV_VARS = "WINE_FAST_YIELD=1 WRAPPER_MAX_IMAGE_COUNT=0 VKD3D_SHADER_MODEL=6_6 ZINK_DESCRIPTORS=lazy ZINK_DEBUG=compact MESA_SHADER_CACHE_DISABLE=false MESA_SHADER_CACHE_MAX_SIZE=512MB mesa_glthread=true WINEESYNC=1 TU_DEBUG=noconform,sysmem DXVK_HUD=devinfo,version,gpuload,fps DXVK_DISABLE_TIMELINE_SEMAPHORES=1";
-    public static final String DEFAULT_SCREEN_SIZE = "1280x720";
-    public static final String DEFAULT_GRAPHICS_DRIVER = "zink";
-    public static final String DEFAULT_AUDIO_DRIVER = "pulse-audio-gn";
-    public static final String DEFAULT_EMULATOR = "FEXCore";
+    public static final String DEFAULT_ENV_VARS = "WINE_FAST_YIELD=1 WRAPPER_MAX_IMAGE_COUNT=0 VKD3D_SHADER_MODEL=6_6 ZINK_DESCRIPTORS=lazy ZINK_DEBUG=compact MESA_SHADER_CACHE_DISABLE=false mesa_glthread=true WINEESYNC=1 DXVK_DISABLE_TIMELINE_SEMAPHORES=1 MESA_GL_VERSION_OVERRIDE=4.6";
+    public static final String DEFAULT_SCREEN_SIZE = "1920x1080";
+    public static final String DEFAULT_GRAPHICS_DRIVER = "freedreno";
+    public static final String DEFAULT_AUDIO_DRIVER = "alsa";
+    public static final String DEFAULT_EMULATOR = "Box64";
     public static final String DEFAULT_DXWRAPPER = "dxvk+vkd3d";
-    public static final String DEFAULT_DXWRAPPERCONFIG = "version=" + DefaultVersion.DXVK + ",framerate=0,async=0,asyncCache=0,maxFrameLatency=0" + ",vkd3dVersion=" + DefaultVersion.VKD3D + ",vkd3dLevel=12_1" + ",ddrawrapper=" + Container.DEFAULT_DDRAWRAPPER + ",csmt=3" + ",gpuName=NVIDIA GeForce GTX 480" + ",videoMemorySize=2048" + ",strict_shader_math=1" + ",OffscreenRenderingMode=fbo" + ",renderer=gl";
+    public static final String DEFAULT_DXWRAPPERCONFIG = "version=1.10.3-arm64ec-async,framerate=0,async=1,asyncCache=0,maxFrameLatency=0,vkd3dVersion=None,vkd3dLevel=12_0,ddrawrapper=none,csmt=3,gpuName=NVIDIA GeForce GTX 1080 Ti,videoMemorySize=2048,strict_shader_math=1,OffscreenRenderingMode=fbo,renderer=gl";
     public static final String DEFAULT_GRAPHICSDRIVERCONFIG =
-            "vulkanVersion=1.3" + ";version=" + ";blacklistedExtensions=" + ";maxDeviceMemory=0" + ";presentMode=mailbox" + ";syncFrame=0" + ";disablePresentWait=0" + ";resourceType=auto" + ";bcnEmulation=auto" + ";bcnEmulationType=compute" + ";bcnEmulationCache=0" + ";gpuName=Device";
+            "vulkanVersion=1.3;version=turnip26.2.0;blacklistedExtensions=;maxDeviceMemory=0;presentMode=mailbox;syncFrame=0;disablePresentWait=0;resourceType=auto;bcnEmulation=auto;bcnEmulationType=software;bcnEmulationCache=0;gpuName=NVIDIA GeForce GTX 1080 Ti";
     public static final String DEFAULT_DDRAWRAPPER = "none";
     public static final String DEFAULT_WINCOMPONENTS = "direct3d=1,directsound=0,directmusic=0,directshow=0,directplay=0,xaudio=0,vcrun2010=1";
     public static final String FALLBACK_WINCOMPONENTS = "direct3d=1,directsound=1,directmusic=1,directshow=1,directplay=1,xaudio=1,vcrun2010=1";
@@ -49,7 +49,7 @@ public class Container {
     private String graphicsDriver = DEFAULT_GRAPHICS_DRIVER;
     private String graphicsDriverConfig = DEFAULT_GRAPHICSDRIVERCONFIG;
     private String dxwrapper = DEFAULT_DXWRAPPER;
-    private String dxwrapperConfig = "";
+    private String dxwrapperConfig = DEFAULT_DXWRAPPERCONFIG;
     private String wincomponents = DEFAULT_WINCOMPONENTS;
     private String audioDriver = DEFAULT_AUDIO_DRIVER;
     private String drives = DEFAULT_DRIVES;
@@ -61,24 +61,24 @@ public class Container {
     private int rendererFilterMode = 0;
     private boolean rendererSwapRB = false;
     private boolean fullscreenStretched;
-    private byte startupSelection = STARTUP_SELECTION_ESSENTIAL;
+    private byte startupSelection = STARTUP_SELECTION_AGGRESSIVE;
     private String cpuList;
     private String cpuListWoW64;
     private boolean syncCpuTopology = false;
     private String desktopTheme = WineThemeManager.DEFAULT_DESKTOP_THEME;
-    private String fexcoreVersion;
-    private String fexcorePreset = FEXCorePreset.INTERMEDIATE;
+    private String fexcoreVersion = DefaultVersion.FEXCORE;
+    private String fexcorePreset = FEXCorePreset.COMPATIBILITY;
     private String box64Preset = Box64Preset.COMPATIBILITY;
     private File rootDir;
     private JSONObject extraData;
-    private String midiSoundFont = "";
+    private String midiSoundFont = "wt_210k_G.sf2";
     private int inputType = WinHandler.DEFAULT_INPUT_TYPE;
-    private String lc_all = "";
+    private String lc_all = "en_US";
     private int primaryController = 1;
     private String controllerMapping = new String(new char[XrControllerMapping.values().length]);
-    private String box64Version;
-    private String emulator;
-    private boolean exclusiveXInput = true;
+    private String box64Version = DefaultVersion.WOWBOX64;
+    private String emulator = DEFAULT_EMULATOR;
+    private boolean exclusiveXInput = false;
     private ContainerManager containerManager;
 
 

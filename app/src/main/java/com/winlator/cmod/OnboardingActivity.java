@@ -899,16 +899,22 @@ public class OnboardingActivity extends AppCompatActivity {
             data.put("graphicsDriverConfig", Container.DEFAULT_GRAPHICSDRIVERCONFIG);
             data.put("rendererNative", false);
             data.put("rendererPresentMode", "fifo");
+            data.put("rendererDriverId", "system");
+            data.put("rendererFilterMode", 0);
             data.put("dxwrapper", Container.DEFAULT_DXWRAPPER);
             data.put("dxwrapperConfig", Container.DEFAULT_DXWRAPPERCONFIG);
             data.put("audioDriver", Container.DEFAULT_AUDIO_DRIVER);
-            data.put("emulator", wineInfo.isArm64EC() ? "FEXCore" : "Box64");
+            data.put("emulator", "Box64");
             data.put("wincomponents", Container.DEFAULT_WINCOMPONENTS);
             data.put("drives", Container.DEFAULT_DRIVES);
-            data.put("box64Version", wineInfo.isArm64EC() ? DefaultVersion.WOWBOX64 : DefaultVersion.BOX64);
+            data.put("box64Version", DefaultVersion.WOWBOX64);
             data.put("box64Preset", Box64Preset.COMPATIBILITY);
             data.put("fexcoreVersion", DefaultVersion.FEXCORE);
-            data.put("fexcorePreset", FEXCorePreset.INTERMEDIATE);
+            data.put("fexcorePreset", FEXCorePreset.COMPATIBILITY);
+            data.put("startupSelection", Container.STARTUP_SELECTION_AGGRESSIVE);
+            data.put("midiSoundFont", "wt_210k_G.sf2");
+            data.put("lc_all", "en_US");
+            data.put("exclusiveXInput", false);
             data.put("wineVersion", runtime);
             OpenGLDriverDefaults.initialize(this, data);
 

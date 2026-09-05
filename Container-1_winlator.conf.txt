@@ -1,0 +1,72 @@
+##############################################
+# Winlator Container Config — Container-1
+##############################################
+
+[General]
+Name = Container-1
+Wine/Proton = Proton 11.0-1 arm64ec
+Audio Driver = ALSA
+Winlator HUD = Off
+Locale (LC_ALL) = en_US
+MIDI SoundFont = wt_210k_G.sf2
+Fullscreen Stretched = Off
+Desktop Theme = Dark
+Desktop Background = Image
+Wallpaper Image = Default wallpaper
+
+[Video]
+Screen Size = 1920x1080 (16:9)
+Renderer = Vulkan
+Surface Format = RGBA
+Present Mode = fifo
+Renderer Driver = System
+Texture Filter = Bilinear
+OpenGL Driver = freedreno
+Vulkan Driver = turnip26.2.0
+Vulkan Extensions = 163 of 163 enabled
+Vulkan Version = 1.3
+GPU Name = NVIDIA GeForce GTX 1080 Ti
+Max Device Memory = 0
+Driver Present Mode = mailbox
+Sync Frame = Off
+Disable Present Wait = Off
+Resource Type = auto
+BCN Emulation = auto
+BCN Emulation Type = software
+BCN Emulation Cache = Off
+
+[Compatibility]
+DX Wrapper = DXVK+VKD3D
+DXVK Version = 1.10.3-arm64ec-async
+VKD3D Version = None
+VKD3D Feature Level = 12_0
+Frame Rate = 0
+Max Frame Latency = Off
+Async = On
+DDraw Wrapper = none
+32-bit Emulator = Box64
+FEXCore Version = 2607
+FEXCore Preset = Compatibility
+
+[Input]
+Exclusive Input = Off
+Enable XInput = On
+Enable DInput = On
+Sync CPU Topology = Off
+Processor Affinity = CPU0, CPU1, CPU2, CPU3, CPU4 (+ more, not fully visible)
+Processor Affinity (32-bit apps) = CPU4
+
+[Advanced]
+Startup Selection = Aggressive (Stop services on startup)
+
+# Environment Variables
+WINE_FAST_YIELD = 1
+WRAPPER_MAX_IMAGE_COUNT = 0
+VKD3D_SHADER_MODEL = 6_6
+ZINK_DESCRIPTORS = lazy
+ZINK_DEBUG = compact
+MESA_SHADER_CACHE_DISABLE = (value not fully visible in screenshot)
+mesa_glthread = true
+WINEESYNC = 1
+DXVK_DISABLE_TIMELINE_SEMAPHORES = 1
+MESA_GL_VERSION_OVERRIDE = 4.6

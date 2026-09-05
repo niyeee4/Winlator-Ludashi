@@ -11,3 +11,4 @@ app/src/main/assets/imagefs.*
 app/src/main/assets/proton-*
 app/src/main/assets/aecs6.tar.zst
 /aecs6/
+.kotlin/

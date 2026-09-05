@@ -4,11 +4,13 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Environment;
+import android.system.Os;
 import android.util.Log;
 
 import com.winlator.cmod.container.Container;
 import com.winlator.cmod.core.FileUtils;
 import com.winlator.cmod.core.TarCompressorUtils;
+import com.winlator.cmod.core.WineRegistryEditor;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -17,6 +19,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -71,9 +74,7 @@ public class AfterEffectsCS6Manager {
         long assetSize = FileUtils.getSize(context, "aecs6.tar.zst");
         if (assetSize > 0) {
             Log.d(TAG, "Extracting aecs6.tar.zst from assets...");
-            extracted = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, "aecs6.tar.zst", appDir, (file, sz) -> {
-                return file;
-            });
+            extracted = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, "aecs6.tar.zst", appDir, (file, sz) -> file);
         }
 
         // 2. Try aecs6.zip in assets
@@ -128,6 +129,7 @@ public class AfterEffectsCS6Manager {
             }
         }
 
+        setupPluginLinksAndRegistry(container);
         createShortcut(context, container);
         return isInstalled(container);
     }
@@ -159,6 +161,164 @@ public class AfterEffectsCS6Manager {
         }
     }
 
+    public static void setupPluginLinksAndRegistry(Container container) {
+        if (container == null) return;
+        try {
+            File rootDir = container.getRootDir();
+            File cDrive = new File(rootDir, ".wine/drive_c");
+            if (!cDrive.exists()) cDrive.mkdirs();
+
+            // 1. Pre-create MediaCore plugin directories
+            File commonMediaCore64 = new File(cDrive, "Program Files/Adobe/Common/Plug-ins/CS6/MediaCore");
+            if (!commonMediaCore64.exists()) commonMediaCore64.mkdirs();
+
+            File commonMediaCore32 = new File(cDrive, "Program Files (x86)/Adobe/Common/Plug-ins/CS6/MediaCore");
+            if (!commonMediaCore32.exists()) commonMediaCore32.mkdirs();
+
+            // 2. Pre-create Adobe folder in Program Files
+            File pfAdobeDir = new File(cDrive, "Program Files/Adobe/Adobe After Effects CS6");
+            if (!pfAdobeDir.exists()) pfAdobeDir.mkdirs();
+
+            // 3. Locate Portable Support Files folder
+            File appDir = getAppDir(container);
+            File portableSupportFiles = new File(appDir, "App/Ae/Support Files");
+            if (!portableSupportFiles.isDirectory()) {
+                File nestedSupport = new File(appDir, "Adobe After Effects CS6 Portable [Black General]/App/Ae/Support Files");
+                if (nestedSupport.isDirectory()) portableSupportFiles = nestedSupport;
+            }
+
+            if (portableSupportFiles.isDirectory()) {
+                File portablePlugins = new File(portableSupportFiles, "Plug-ins");
+                if (!portablePlugins.exists()) portablePlugins.mkdirs();
+                File portableScripts = new File(portableSupportFiles, "Scripts");
+                if (!portableScripts.exists()) portableScripts.mkdirs();
+                File portablePresets = new File(portableSupportFiles, "Presets");
+                if (!portablePresets.exists()) portablePresets.mkdirs();
+
+                // Link C:\Program Files\Adobe\Adobe After Effects CS6\Support Files to portable Support Files
+                File pfSupportFiles = new File(pfAdobeDir, "Support Files");
+                if (!pfSupportFiles.exists()) {
+                    try {
+                        Os.symlink("../../../Adobe After Effects CS6 Portable/App/Ae/Support Files", pfSupportFiles.getAbsolutePath());
+                        Log.d(TAG, "Linked Support Files symlink successfully.");
+                    } catch (Exception e) {
+                        Log.w(TAG, "Symlink Support Files failed, creating directory links instead", e);
+                    }
+                }
+
+                // If pfSupportFiles exists as a directory (either symlinked or real folder):
+                if (pfSupportFiles.isDirectory() && !FileUtils.isSymlink(pfSupportFiles)) {
+                    linkChild(pfSupportFiles, "Plug-ins", "../../../../Adobe After Effects CS6 Portable/App/Ae/Support Files/Plug-ins");
+                    linkChild(pfSupportFiles, "Scripts", "../../../../Adobe After Effects CS6 Portable/App/Ae/Support Files/Scripts");
+                    linkChild(pfSupportFiles, "Presets", "../../../../Adobe After Effects CS6 Portable/App/Ae/Support Files/Presets");
+                    linkChild(pfSupportFiles, "AfterFX.exe", "../../../../Adobe After Effects CS6 Portable/App/Ae/Support Files/AfterFX.exe");
+                    linkChild(pfSupportFiles, "AfterFX.dll", "../../../../Adobe After Effects CS6 Portable/App/Ae/Support Files/AfterFX.dll");
+                }
+
+                // Link MediaCore into portable Plug-ins folder so AE scans MediaCore automatically
+                File mediaCoreSymlink = new File(portablePlugins, "MediaCore");
+                if (!mediaCoreSymlink.exists()) {
+                    try {
+                        Os.symlink("../../../../Program Files/Adobe/Common/Plug-ins/CS6/MediaCore", mediaCoreSymlink.getAbsolutePath());
+                    } catch (Exception ignored) {}
+                }
+
+                File mediaCore32Symlink = new File(portablePlugins, "MediaCore-x86");
+                if (!mediaCore32Symlink.exists()) {
+                    try {
+                        Os.symlink("../../../../Program Files (x86)/Adobe/Common/Plug-ins/CS6/MediaCore", mediaCore32Symlink.getAbsolutePath());
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            // 4. Configure Wine Registry for Adobe After Effects CS6 install paths
+            configureWineRegistry(rootDir);
+
+            // 5. Fix portable reg settings if present
+            fixPortableRegSettings(appDir);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to setup plugin links and registry", e);
+        }
+    }
+
+    private static void linkChild(File parent, String name, String targetRelPath) {
+        File child = new File(parent, name);
+        if (!child.exists()) {
+            try {
+                Os.symlink(targetRelPath, child.getAbsolutePath());
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private static void configureWineRegistry(File rootDir) {
+        File[] regFiles = new File[]{
+                new File(rootDir, ".wine/system.reg"),
+                new File(rootDir, ".wine/user.reg")
+        };
+
+        String[] aeKeys = new String[]{
+                "Software\\Adobe\\After Effects\\11.0",
+                "Software\\Adobe\\After Effects\\11",
+                "Software\\Wow6432Node\\Adobe\\After Effects\\11.0",
+                "Software\\Wow6432Node\\Adobe\\After Effects\\11"
+        };
+
+        for (File regFile : regFiles) {
+            if (!regFile.isFile()) continue;
+            try (WineRegistryEditor reg = new WineRegistryEditor(regFile)) {
+                for (String key : aeKeys) {
+                    reg.setStringValue(key, "InstallPath", "C:\\Program Files\\Adobe\\Adobe After Effects CS6\\Support Files\\");
+                    reg.setStringValue(key, "PluginInstallPath", "C:\\Program Files\\Adobe\\Adobe After Effects CS6\\Support Files\\Plug-ins\\");
+                    reg.setStringValue(key, "CommonPluginInstallPath", "C:\\Program Files\\Adobe\\Common\\Plug-ins\\CS6\\MediaCore\\");
+                    reg.setStringValue(key, "FFXInstallPath", "C:\\Program Files\\Adobe\\Adobe After Effects CS6\\Support Files\\Presets\\");
+                }
+                reg.setStringValue("Software\\Adobe\\DefaultLanguage\\CS6", "AdobeProductLanguage", "en_US");
+                reg.setStringValue("Software\\Wow6432Node\\Adobe\\DefaultLanguage\\CS6", "AdobeProductLanguage", "en_US");
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private static void fixPortableRegSettings(File appDir) {
+        try {
+            File regFile = new File(appDir, "Data/settings/AdobeAfterEffectsPortable.reg");
+            if (regFile.isFile()) {
+                byte[] bytes = FileUtils.read(regFile);
+                if (bytes != null && bytes.length > 2) {
+                    String regContent;
+                    boolean isUtf16 = (bytes[0] == (byte) 0xFF && bytes[1] == (byte) 0xFE);
+                    if (isUtf16) {
+                        regContent = new String(bytes, 2, bytes.length - 2, StandardCharsets.UTF_16LE);
+                    } else {
+                        regContent = new String(bytes, StandardCharsets.UTF_8);
+                    }
+
+                    if (regContent.contains("Users\\root\\Desktop")) {
+                        regContent = regContent.replace(
+                                "C:\\\\Users\\\\root\\\\Desktop\\\\Adobe After Effects\\\\Adobe After Effects CS6\\\\Adobe After Effects CS6 Portable [Black General]",
+                                "C:\\\\Adobe After Effects CS6 Portable"
+                        );
+                        regContent = regContent.replace(
+                                "C:\\Users\\root\\Desktop\\Adobe After Effects\\Adobe After Effects CS6\\Adobe After Effects CS6 Portable [Black General]",
+                                "C:\\Adobe After Effects CS6 Portable"
+                        );
+
+                        byte[] outBytes = isUtf16
+                                ? regContent.getBytes(StandardCharsets.UTF_16LE)
+                                : regContent.getBytes(StandardCharsets.UTF_8);
+
+                        try (FileOutputStream fos = new FileOutputStream(regFile)) {
+                            if (isUtf16) {
+                                fos.write(0xFF);
+                                fos.write(0xFE);
+                            }
+                            fos.write(outBytes);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
     public static void createShortcut(Context context, Container container) {
         try {
             File desktopDir = container.getDesktopDir();
@@ -177,6 +337,28 @@ public class AfterEffectsCS6Manager {
                 writer.println("Icon=" + SHORTCUT_NAME);
                 writer.println("StartupWMClass=AfterFX.exe");
                 writer.println("container_id:" + container.id);
+                writer.println();
+                writer.println("[Extra Data]");
+                writer.println("screenSize=1920x1080");
+                writer.println("graphicsDriver=freedreno");
+                writer.println("graphicsDriverConfig=vulkanVersion=1.3;version=turnip26.2.0;blacklistedExtensions=;maxDeviceMemory=0;presentMode=mailbox;syncFrame=0;disablePresentWait=0;resourceType=auto;bcnEmulation=auto;bcnEmulationType=software;bcnEmulationCache=0;gpuName=NVIDIA GeForce GTX 1080 Ti");
+                writer.println("rendererNative=0");
+                writer.println("rendererPresentMode=fifo");
+                writer.println("rendererDriverId=system");
+                writer.println("rendererFilterMode=0");
+                writer.println("dxwrapper=dxvk+vkd3d");
+                writer.println("dxwrapperConfig=version=1.10.3-arm64ec-async,framerate=0,async=1,asyncCache=0,maxFrameLatency=0,vkd3dVersion=None,vkd3dLevel=12_0,ddrawrapper=none,csmt=3,gpuName=NVIDIA GeForce GTX 1080 Ti,videoMemorySize=2048,strict_shader_math=1,OffscreenRenderingMode=fbo,renderer=gl");
+                writer.println("audioDriver=alsa");
+                writer.println("box64Version=0.4.2");
+                writer.println("box64Preset=COMPATIBILITY");
+                writer.println("fexcoreVersion=2607");
+                writer.println("fexcorePreset=COMPATIBILITY");
+                writer.println("startupSelection=2");
+                writer.println("midiSoundFont=wt_210k_G.sf2");
+                writer.println("lc_all=en_US");
+                writer.println("exclusiveXInput=0");
+                writer.println("fullscreenStretched=0");
+                writer.println("envVars=WINE_FAST_YIELD=1 WRAPPER_MAX_IMAGE_COUNT=0 VKD3D_SHADER_MODEL=6_6 ZINK_DESCRIPTORS=lazy ZINK_DEBUG=compact MESA_SHADER_CACHE_DISABLE=false mesa_glthread=true WINEESYNC=1 DXVK_DISABLE_TIMELINE_SEMAPHORES=1 MESA_GL_VERSION_OVERRIDE=4.6");
             }
 
             installIcons(context, container);
