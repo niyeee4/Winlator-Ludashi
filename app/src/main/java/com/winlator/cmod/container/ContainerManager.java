@@ -8,6 +8,7 @@ import android.util.Log;
 import com.winlator.cmod.R;
 import com.winlator.cmod.contents.ContentsManager;
 import com.winlator.cmod.core.Callback;
+import com.winlator.cmod.core.DefaultVersion;
 import com.winlator.cmod.core.FileUtils;
 import com.winlator.cmod.core.MSLink;
 import com.winlator.cmod.core.OnExtractFileListener;
@@ -162,12 +163,10 @@ public class ContainerManager {
                 return null;
             }
 
-//            // Extract the selected graphics driver files
-//            String driverVersion = container.getGraphicsDriverVersion();
-//            if (!extractGraphicsDriverFiles(driverVersion, containerDir, null)) {
-//                FileUtils.delete(containerDir);
-//                return null;
-//            }
+            File system32 = new File(containerDir, ".wine/drive_c/windows/system32");
+            if (!system32.exists()) system32.mkdirs();
+            TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, "wowbox64/wowbox64-" + DefaultVersion.WOWBOX64 + ".tzst", system32);
+            TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, "fexcore/fexcore-" + DefaultVersion.FEXCORE + ".tzst", system32);
 
             container.saveData();
             maxContainerId = Math.max(maxContainerId, id);

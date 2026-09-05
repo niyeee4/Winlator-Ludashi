@@ -195,10 +195,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             if (selectedMenuItemId > 0) {
                 menuItemId = selectedMenuItemId;
             } else {
-                List<Shortcut> shortcuts = containerManager.loadShortcuts();
-                menuItemId = (shortcuts != null && !shortcuts.isEmpty())
-                        ? R.id.main_menu_shortcuts
-                        : R.id.main_menu_containers;
+                menuItemId = R.id.main_menu_shortcuts;
             }
 
             if (actionBar != null) actionBar.setDisplayHomeAsUpEnabled(false);

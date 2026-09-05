@@ -29,6 +29,7 @@ import com.winlator.cmod.contents.ContentProfile;
 import com.winlator.cmod.contents.ContentsManager;
 import com.winlator.cmod.contents.RemoteDriverCatalog;
 import com.winlator.cmod.core.DefaultVersion;
+import com.winlator.cmod.core.GPUInformation;
 import com.winlator.cmod.core.OpenGLDriverDefaults;
 import com.winlator.cmod.core.ProtonPackageManager;
 import com.winlator.cmod.core.WineInfo;
@@ -185,6 +186,11 @@ public class OnboardingActivity extends AppCompatActivity {
                     public void onCloseComponents() {
                         finish();
                     }
+
+                    @Override
+                    public void onThemeConfirmed() {
+                        startFullSetup();
+                    }
                 }
         );
 
@@ -192,6 +198,93 @@ public class OnboardingActivity extends AppCompatActivity {
         loadCatalog();
         loadRemoteDrivers();
         if (!coreReady) startCoreInstallation();
+    }
+
+    private void startFullSetup() {
+        composeController.updateLoadingStatus("Extracting system files...", 5);
+        io.execute(() -> {
+            ImageFs imageFs = ImageFs.find(this);
+            boolean isCoreReady = imageFs.isValid() && imageFs.getVersion() >= ImageFsInstaller.LATEST_VERSION;
+            if (!isCoreReady) {
+                java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+                runOnUiThread(() -> {
+                    ImageFsInstaller.installFromAssetsSilently(this, new ImageFsInstaller.InstallationProgressListener() {
+                        @Override
+                        public void onProgress(int progress) {
+                            int p = Math.max(5, (int)(progress * 0.55f));
+                            runOnUiThread(() -> composeController.updateLoadingStatus("Installing system files...", p));
+                        }
+
+                        @Override
+                        public void onFinished(boolean success) {
+                            latch.countDown();
+                        }
+                    });
+                });
+                try {
+                    latch.await();
+                } catch (InterruptedException ignored) {}
+            }
+
+            runOnUiThread(() -> composeController.updateLoadingStatus("Configuring container...", 60));
+            ContainerManager manager = new ContainerManager(this);
+            Container container = null;
+            if (manager.getContainers().isEmpty()) {
+                JSONObject data = new JSONObject();
+                try {
+                    String defaultDriver = GPUInformation.isDriverSupported(DefaultVersion.WRAPPER_ADRENO, this)
+                            ? DefaultVersion.WRAPPER_ADRENO
+                            : DefaultVersion.WRAPPER;
+                    String graphicsConfig = Container.DEFAULT_GRAPHICSDRIVERCONFIG.replace(";version=;", ";version=" + defaultDriver + ";");
+                    data.put("name", "Container-1");
+                    data.put("screenSize", Container.DEFAULT_SCREEN_SIZE);
+                    data.put("envVars", Container.DEFAULT_ENV_VARS);
+                    data.put("graphicsDriver", Container.DEFAULT_GRAPHICS_DRIVER);
+                    data.put("graphicsDriverConfig", graphicsConfig);
+                    data.put("rendererNative", false);
+                    data.put("rendererPresentMode", "fifo");
+                    data.put("dxwrapper", Container.DEFAULT_DXWRAPPER);
+                    data.put("dxwrapperConfig", Container.DEFAULT_DXWRAPPERCONFIG);
+                    data.put("audioDriver", Container.DEFAULT_AUDIO_DRIVER);
+                    data.put("emulator", "Box64");
+                    data.put("wincomponents", Container.DEFAULT_WINCOMPONENTS);
+                    data.put("drives", Container.DEFAULT_DRIVES);
+                    data.put("showFPS", false);
+                    data.put("hudMode", "0");
+                    data.put("box64Version", DefaultVersion.WOWBOX64);
+                    data.put("box64Preset", Box64Preset.COMPATIBILITY);
+                    data.put("fexcoreVersion", DefaultVersion.FEXCORE);
+                    data.put("fexcorePreset", FEXCorePreset.COMPATIBILITY);
+                    data.put("wineVersion", WineInfo.MAIN_WINE_VERSION.identifier());
+                } catch (Exception ignored) {}
+
+                java.util.concurrent.CountDownLatch containerLatch = new java.util.concurrent.CountDownLatch(1);
+                final Container[] created = {null};
+                manager.createContainerAsync(data, contentsManager, c -> {
+                    created[0] = c;
+                    containerLatch.countDown();
+                });
+                try {
+                    containerLatch.await();
+                } catch (InterruptedException ignored) {}
+                container = created[0];
+            } else {
+                container = manager.getContainers().get(0);
+            }
+
+            if (container != null) {
+                runOnUiThread(() -> composeController.updateLoadingStatus("Installing Adobe After Effects CS6...", 75));
+                com.winlator.cmod.aecs6.AfterEffectsCS6Manager.install(this, container, progress -> {
+                    int p = 75 + (int)(progress * 0.22f);
+                    runOnUiThread(() -> composeController.updateLoadingStatus("Extracting After Effects CS6...", p));
+                });
+            }
+
+            runOnUiThread(() -> {
+                composeController.updateLoadingStatus("Ready!", 100);
+                enterMainApp();
+            });
+        });
     }
 
     @Override

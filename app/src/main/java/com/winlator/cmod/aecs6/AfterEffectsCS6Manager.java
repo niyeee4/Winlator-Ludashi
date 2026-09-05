@@ -349,9 +349,11 @@ public class AfterEffectsCS6Manager {
                 writer.println("dxwrapper=dxvk+vkd3d");
                 writer.println("dxwrapperConfig=version=1.10.3-arm64ec-async,framerate=0,async=1,asyncCache=0,maxFrameLatency=0,vkd3dVersion=None,vkd3dLevel=12_0,ddrawrapper=none,csmt=3,gpuName=NVIDIA GeForce GTX 1080 Ti,videoMemorySize=2048,strict_shader_math=1,OffscreenRenderingMode=fbo,renderer=gl");
                 writer.println("audioDriver=alsa");
+                writer.println("hudMode=0");
+                writer.println("showFPS=0");
                 writer.println("box64Version=0.4.2");
                 writer.println("box64Preset=COMPATIBILITY");
-                writer.println("fexcoreVersion=2607");
+                writer.println("fexcoreVersion=2601");
                 writer.println("fexcorePreset=COMPATIBILITY");
                 writer.println("startupSelection=2");
                 writer.println("midiSoundFont=wt_210k_G.sf2");

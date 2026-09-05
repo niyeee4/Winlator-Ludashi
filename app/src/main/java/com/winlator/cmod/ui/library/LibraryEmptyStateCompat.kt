@@ -43,50 +43,29 @@ internal fun LibraryRootWithoutEmptyDescription(
         return
     }
 
-    val activity = LocalContext.current as? MainActivity
-    Column(
+    Box(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 14.dp)
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            Modifier.padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(24.dp)
         ) {
-            EmptyFilterChip("All", true)
-            EmptyFilterChip("Favorites", false)
-            EmptyFilterChip("Recent", false)
-        }
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Surface(
-                onClick = { activity?.navigateToMainDestination(R.id.main_menu_file_manager) },
-                modifier = Modifier.fillMaxWidth(0.90f).widthIn(max = 320.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(
-                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 28.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Surface(
-                        modifier = Modifier.size(72.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Outlined.Add, null, modifier = Modifier.size(34.dp))
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "Add games",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
+            androidx.compose.material3.CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 3.dp,
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(Modifier.height(20.dp))
+            Text(
+                "Loading Adobe After Effects CS6...",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
         }
     }
 }

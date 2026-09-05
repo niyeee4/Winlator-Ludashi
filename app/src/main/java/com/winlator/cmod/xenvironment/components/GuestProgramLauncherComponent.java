@@ -17,6 +17,7 @@ import com.winlator.cmod.container.Shortcut;
 import com.winlator.cmod.contents.ContentProfile;
 import com.winlator.cmod.contents.ContentsManager;
 import com.winlator.cmod.core.Callback;
+import com.winlator.cmod.core.DefaultVersion;
 import com.winlator.cmod.core.EnvVars;
 import com.winlator.cmod.core.FileUtils;
 import com.winlator.cmod.core.GPUInformation;
@@ -134,10 +135,11 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         }
     }
 
-    private void extractEmulatorsDlls() {;
+    private void extractEmulatorsDlls() {
         Context context = environment.getContext();
         File rootDir = environment.getImageFs().getRootDir();
-        File system32dir = new File(rootDir + "/home/xuser/.wine/drive_c/windows/system32");
+        File system32dir = new File(rootDir, "home/xuser/.wine/drive_c/windows/system32");
+        if (!system32dir.exists()) system32dir.mkdirs();
         boolean containerDataChanged = false;
 
         String wowbox64Version = container.getBox64Version();
@@ -148,10 +150,14 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
             fexcoreVersion = shortcut.getExtra("fexcoreVersion", shortcut.container.getFEXCoreVersion());
         }
 
+        if (wowbox64Version == null || wowbox64Version.isEmpty()) wowbox64Version = DefaultVersion.WOWBOX64;
+        if (fexcoreVersion == null || fexcoreVersion.isEmpty()) fexcoreVersion = DefaultVersion.FEXCORE;
+
         Log.d("GuestProgramLauncherComponent", "box64Version in use: " + wowbox64Version);
         Log.d("GuestProgramLauncherComponent", "fexcoreVersion in use: " + fexcoreVersion);
 
-        if (!wowbox64Version.equals(container.getExtra("box64Version"))) {
+        File wowbox64Dll = new File(system32dir, "wowbox64.dll");
+        if (!wowbox64Version.equals(container.getExtra("box64Version")) || !wowbox64Dll.exists()) {
             boolean applied = applyRuntimeContent(
                     ContentProfile.ContentType.CONTENT_TYPE_WOWBOX64,
                     wowbox64Version,
@@ -166,12 +172,13 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
             }
         }
 
+        File fexcoreDll = new File(system32dir, "libarm64ecfex.dll");
         ContentProfile fexcoreProfile = resolveInstalledRuntimeProfile(
                 ContentProfile.ContentType.CONTENT_TYPE_FEXCORE, fexcoreVersion);
         boolean fexcoreFilesMissing = fexcoreProfile != null
                 && !contentsManager.isContentApplied(fexcoreProfile);
-        if (!fexcoreVersion.equals(container.getExtra("fexcoreVersion")) || fexcoreFilesMissing) {
-            if (fexcoreFilesMissing) {
+        if (!fexcoreVersion.equals(container.getExtra("fexcoreVersion")) || fexcoreFilesMissing || !fexcoreDll.exists()) {
+            if (fexcoreFilesMissing || !fexcoreDll.exists()) {
                 Log.w("GuestProgramLauncherComponent",
                         "FEXCore files are missing or incomplete; reapplying " + fexcoreVersion);
             }
@@ -188,6 +195,19 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
                 Log.e("GuestProgramLauncherComponent", "Unable to apply FEXCore version " + fexcoreVersion);
             }
         }
+
+        if (container.getRootDir() != null) {
+            File cSys32 = new File(container.getRootDir(), ".wine/drive_c/windows/system32");
+            if (cSys32.exists()) {
+                if (!new File(cSys32, "wowbox64.dll").exists()) {
+                    applyRuntimeContent(ContentProfile.ContentType.CONTENT_TYPE_WOWBOX64, wowbox64Version, context, "wowbox64/wowbox64-" + wowbox64Version + ".tzst", cSys32);
+                }
+                if (!new File(cSys32, "libarm64ecfex.dll").exists()) {
+                    applyRuntimeContent(ContentProfile.ContentType.CONTENT_TYPE_FEXCORE, fexcoreVersion, context, "fexcore/fexcore-" + fexcoreVersion + ".tzst", cSys32);
+                }
+            }
+        }
+
         if (containerDataChanged) container.saveData();
     }
 
@@ -346,7 +366,8 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         execEnvVars.put("USER", ImageFs.USER);
         execEnvVars.put("TMPDIR", rootDir.getPath() + "/usr/tmp");
         execEnvVars.put("XDG_DATA_DIRS", rootDir.getPath() + "/usr/share");
-        execEnvVars.put("LD_LIBRARY_PATH", rootDir.getPath() + "/usr/lib" + ":" + "/system/lib64");
+        String wineLibPath = imageFs.getWinePath() + "/lib/wine/aarch64-unix:" + imageFs.getWinePath() + "/lib:";
+        execEnvVars.put("LD_LIBRARY_PATH", wineLibPath + rootDir.getPath() + "/usr/lib" + ":" + "/system/lib64");
         execEnvVars.put("XDG_CONFIG_DIRS", rootDir.getPath() + "/usr/etc/xdg");
         execEnvVars.put("GST_PLUGIN_PATH", rootDir.getPath() + "/usr/lib/gstreamer-1.0");
         execEnvVars.put("FONTCONFIG_PATH", rootDir.getPath() + "/usr/etc/fonts");
@@ -373,6 +394,17 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         String winePath = imageFs.getWinePath() + "/bin";
 
         Log.d("GuestProgramLauncherComponent", "WinePath is " + winePath);
+
+        File wineBin = new File(winePath, "wine");
+        if (wineBin.exists()) FileUtils.chmod(wineBin, 0755);
+        File wineServer = new File(winePath, "wineserver");
+        if (wineServer.exists()) FileUtils.chmod(wineServer, 0755);
+        File winePreloader = new File(winePath, "wine-preloader");
+        if (winePreloader.exists()) FileUtils.chmod(winePreloader, 0755);
+        File wineUnixBin = new File(imageFs.getWinePath(), "lib/wine/aarch64-unix/wine");
+        if (wineUnixBin.exists()) FileUtils.chmod(wineUnixBin, 0755);
+        File wineUnixPreloader = new File(imageFs.getWinePath(), "lib/wine/aarch64-unix/wine-preloader");
+        if (wineUnixPreloader.exists()) FileUtils.chmod(wineUnixPreloader, 0755);
 
         execEnvVars.put("PATH", winePath + ":" +
                 rootDir.getPath() + "/usr/bin");
@@ -455,10 +487,23 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         if (this.envVars.has("MANGOHUD_CONFIG")) {
             this.envVars.remove("MANGOHUD_CONFIG");
         }
+
+        if (this.envVars.has("DXVK_HUD")) {
+            this.envVars.remove("DXVK_HUD");
+        }
+
+        if (this.envVars.has("GALLIUM_HUD")) {
+            this.envVars.remove("GALLIUM_HUD");
+        }
         
         if (this.envVars != null) {
             execEnvVars.putAll(this.envVars);
         }
+
+        execEnvVars.remove("MANGOHUD");
+        execEnvVars.remove("MANGOHUD_CONFIG");
+        execEnvVars.remove("DXVK_HUD");
+        execEnvVars.remove("GALLIUM_HUD");
 
         boolean useDisplayX = shortcut != null
                 ? shortcut.getUseDisplayX()

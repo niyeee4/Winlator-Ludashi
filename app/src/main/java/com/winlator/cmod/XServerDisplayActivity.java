@@ -1258,10 +1258,21 @@ public class XServerDisplayActivity extends AppCompatActivity {
         }
 
         if (container != null) {
-            String hudModeExtra = container.getExtra("hudMode");
-            int hudMode = !hudModeExtra.isEmpty()
-                    ? Integer.parseInt(hudModeExtra)
-                    : (container.isShowFPS() ? 1 : 0);
+            String hudModeExtra = container.getExtra("hudMode", "0");
+            int hudMode = 0;
+            if (!hudModeExtra.isEmpty()) {
+                try {
+                    hudMode = Integer.parseInt(hudModeExtra);
+                } catch (Exception ignored) {}
+            } else if (container.isShowFPS()) {
+                hudMode = 1;
+            }
+
+            if (shortcut != null && !shortcut.getExtra("hudMode").isEmpty()) {
+                try {
+                    hudMode = Integer.parseInt(shortcut.getExtra("hudMode"));
+                } catch (Exception ignored) {}
+            }
 
             if (hudMode == 1) {
 
@@ -2412,9 +2423,20 @@ public class XServerDisplayActivity extends AppCompatActivity {
         }
 
         String vulkanVersion = graphicsDriverConfig.get("vulkanVersion");
-        String vulkanVersionPatch = GPUInformation.getVulkanVersion(adrenoToolsDriverId, this).split("\\.")[2];
-        vulkanVersion = vulkanVersion + "." + vulkanVersionPatch;
-        envVars.put("WRAPPER_VK_VERSION", vulkanVersion);
+        if (vulkanVersion != null && !vulkanVersion.isEmpty()) {
+            String vulkanVersionPatch = "0";
+            try {
+                String fullVk = GPUInformation.getVulkanVersion(adrenoToolsDriverId, this);
+                if (fullVk != null && fullVk.contains(".")) {
+                    String[] parts = fullVk.split("\\.");
+                    if (parts.length >= 3) {
+                        vulkanVersionPatch = parts[2];
+                    }
+                }
+            } catch (Exception ignored) {}
+            vulkanVersion = vulkanVersion + "." + vulkanVersionPatch;
+            envVars.put("WRAPPER_VK_VERSION", vulkanVersion);
+        }
 
         String blacklistedExtensions = graphicsDriverConfig.get("blacklistedExtensions");
         envVars.put("WRAPPER_EXTENSION_BLACKLIST", blacklistedExtensions);
@@ -2730,6 +2752,23 @@ public class XServerDisplayActivity extends AppCompatActivity {
                 args += "\"" + shortcut.path + "\"" + execArgs;
             } else {
                 String fullPath = shortcut.path.replace("\"", "");
+                int driveCIndex = fullPath.indexOf(".wine/drive_c");
+                if (driveCIndex != -1) {
+                    String relative = fullPath.substring(driveCIndex + ".wine/drive_c".length());
+                    while (relative.startsWith("/")) relative = relative.substring(1);
+                    fullPath = "C:\\" + relative.replace('/', '\\');
+                } else {
+                    int dosDevicesIndex = fullPath.indexOf(".wine/dosdevices/");
+                    if (dosDevicesIndex != -1) {
+                        String relative = fullPath.substring(dosDevicesIndex + ".wine/dosdevices/".length());
+                        if (relative.length() >= 2 && relative.charAt(1) == ':') {
+                            String driveLetter = relative.substring(0, 2).toUpperCase();
+                            String rest = relative.substring(2);
+                            while (rest.startsWith("/")) rest = rest.substring(1);
+                            fullPath = driveLetter + "\\" + rest.replace('/', '\\');
+                        }
+                    }
+                }
                 String exeDir;
                 String filename;
 

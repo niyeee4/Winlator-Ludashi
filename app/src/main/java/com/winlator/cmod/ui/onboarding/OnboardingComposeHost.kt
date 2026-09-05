@@ -24,6 +24,25 @@ import com.winlator.cmod.ui.applyAppFullscreen
 import com.winlator.cmod.ui.settings.cleanContainerEnvironment
 import com.winlator.cmod.ui.theme.WinZTheme
 import org.json.JSONObject
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 
 @Immutable
 data class OnboardingComponent @JvmOverloads constructor(
@@ -49,6 +68,7 @@ interface OnboardingCallbacks {
     fun onRequestPermissions()
     fun onRetryCore()
     fun onCloseComponents()
+    fun onThemeConfirmed()
 }
 
 class OnboardingComposeController internal constructor(
@@ -61,7 +81,9 @@ class OnboardingComposeController internal constructor(
     private val installingLabel: MutableState<String?>,
     private val installingProgress: MutableState<Int>,
     private val initialContainerPreparing: MutableState<Boolean>,
-    private val initialContainerReady: MutableState<Boolean>
+    private val initialContainerReady: MutableState<Boolean>,
+    val loadingStatus: MutableState<String>,
+    val loadingProgress: MutableState<Int>
 ) {
     fun updateCore(ready: Boolean, progress: Int) {
         coreReady.value = ready
@@ -97,6 +119,11 @@ class OnboardingComposeController internal constructor(
         initialContainerPreparing.value = preparing
         initialContainerReady.value = ready
     }
+
+    fun updateLoadingStatus(status: String, progress: Int) {
+        loadingStatus.value = status
+        loadingProgress.value = progress.coerceIn(-1, 100)
+    }
 }
 
 object OnboardingComposeHost {
@@ -120,6 +147,8 @@ object OnboardingComposeHost {
         val installProgress = mutableStateOf(-1)
         val containerPreparing = mutableStateOf(false)
         val containerReady = mutableStateOf(false)
+        val loadingStatus = mutableStateOf("Preparing environment...")
+        val loadingProgress = mutableStateOf(-1)
         val controller = OnboardingComposeController(
             ready,
             progress,
@@ -130,7 +159,9 @@ object OnboardingComposeHost {
             installLabel,
             installProgress,
             containerPreparing,
-            containerReady
+            containerReady,
+            loadingStatus,
+            loadingProgress
         )
 
         applyAppFullscreen(activity)
@@ -148,6 +179,8 @@ object OnboardingComposeHost {
                     installProgress,
                     containerPreparing,
                     containerReady,
+                    loadingStatus,
+                    loadingProgress,
                     componentManagerMode,
                     callbacks
                 )
@@ -157,7 +190,7 @@ object OnboardingComposeHost {
     }
 }
 
-private enum class OnboardingPage { Welcome, Theme, Components, Runtime, Access }
+private enum class OnboardingPage { Welcome, Theme, Loading, Components, Runtime, Access }
 
 private fun prepareInitialContainer(
     activity: ComponentActivity,
@@ -242,6 +275,8 @@ private fun OnboardingFlow(
     installingProgress: State<Int>,
     containerPreparing: MutableState<Boolean>,
     containerReady: MutableState<Boolean>,
+    loadingStatus: State<String>,
+    loadingProgress: State<Int>,
     managerMode: Boolean,
     cb: OnboardingCallbacks
 ) {
@@ -269,7 +304,15 @@ private fun OnboardingFlow(
         )
 
         OnboardingPage.Theme -> OnboardingThemeScreen(
-            onContinue = { page = OnboardingPage.Components }
+            onContinue = {
+                page = OnboardingPage.Loading
+                cb.onThemeConfirmed()
+            }
+        )
+
+        OnboardingPage.Loading -> OnboardingLoadingScreen(
+            status = loadingStatus.value,
+            progress = loadingProgress.value
         )
 
         OnboardingPage.Components -> OnboardingComponentsScreen(
@@ -312,3 +355,58 @@ private fun OnboardingFlow(
         )
     }
 }
+
+@Composable
+private fun OnboardingLoadingScreen(
+    status: String,
+    progress: Int
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.widthIn(max = 480.dp)
+        ) {
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 4.dp,
+                modifier = Modifier.size(56.dp)
+            )
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = "Adobe After Effects CS6",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = if (status.isNotBlank()) status else "Preparing environment...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (progress in 0..100) {
+                Spacer(Modifier.height(20.dp))
+                LinearProgressIndicator(
+                    progress = { progress / 100f },
+                    modifier = Modifier.fillMaxWidth(0.8f).height(6.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "$progress%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
